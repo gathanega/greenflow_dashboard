@@ -358,11 +358,28 @@
     <!-- Supabase config (isi SUPABASE_URL & SUPABASE_ANON_KEY di sini) -->
     <script src="config.js"></script>
 
+    <!-- Pengaman: kalau module di bawah gagal dimuat (CDN diblokir, dll),
+         splash tetap hilang setelah 10 detik -->
+    <script>
+      setTimeout(function () {
+        var s = document.getElementById("splash-screen");
+        if (s) s.classList.add("splash-hidden");
+      }, 10000);
+    </script>
+
     <script type="module">
       import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
-      const { SUPABASE_URL, SUPABASE_ANON_KEY } = window.GREENFLOW_CONFIG;
-      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      const cfg = window.GREENFLOW_CONFIG;
+      if (!cfg) {
+        document.getElementById("status-line").textContent =
+          "config.js tidak ditemukan / gagal dimuat";
+        document.getElementById("splash-screen").style.display = "none";
+        throw new Error(
+          "GREENFLOW_CONFIG undefined — pastikan config.js ikut ter-deploy di folder yang sama dengan index.html",
+        );
+      }
+      const supabase = createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY);
 
       const statusLine = document.getElementById("status-line");
       const locationMenu = document.getElementById("location-menu");
@@ -696,7 +713,12 @@
       Promise.all([
         populateLocations().then(loadData).then(loadCongestionChart),
         splashMinDelay,
-      ]).then(hideSplash);
+      ])
+        .catch((err) => {
+          console.error(err);
+          statusLine.textContent = "Gagal memuat: " + err.message;
+        })
+        .finally(hideSplash);
 
       setInterval(() => { loadData(); loadCongestionChart(); }, 5000);
     </script>
